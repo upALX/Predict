@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: predict_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: predict_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  predict:
+    build: .
+    container_name: predict
+    volumes:
+      - .:/predict
+    working_dir: /predict
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/predict
+    ports:
+      - "8501:8501" 
+      - "5000:5000" 
+    command: bash
+
+  airflow:
+    image: apache/airflow:2.7.0
+    container_name: airflow
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@db:5432/predict
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./etl:/opt/airflow/etl
+      - ./models:/opt/airflow/models
+      - ./data:/opt/airflow/data
+    ports:
+      - "8080:8080"
+    command: ["standalone"]
+
+volumes:
+  db_data:
